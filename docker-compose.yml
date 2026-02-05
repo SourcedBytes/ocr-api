@@ -5,6 +5,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      GOOGLE_VISION_ENDPOINT: "eu-vision.googleapis.com"
+      GOOGLE_VISION_CREDS_JSON: "/secrets/google-vision.json"
     volumes:
       - .:/app
-    command: python main.py
+      - ./secrets/platform-481515-4ac0956516a5.json:/secrets/google-vision.json:ro
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
