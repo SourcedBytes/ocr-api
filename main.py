@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import re
+import time
 from typing import Optional, List, Tuple
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -138,7 +140,24 @@ def ocr_google_bytes(image_bytes: bytes) -> str:
     return resp.text_annotations[0].description if resp.text_annotations else ""
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("vin-ocr")
+
 app = FastAPI(title="VIN OCR API", version="1.0.0")
+
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start = time.time()
+    logger.info("REQ  %s %s", request.method, request.url.path)
+    response = await call_next(request)
+    elapsed_ms = (time.time() - start) * 1000
+    logger.info("RES  %s %s → %d (%.0fms)", request.method, request.url.path, response.status_code, elapsed_ms)
+    return response
 
 
 class VinOcrResponse(BaseModel):
@@ -154,17 +173,25 @@ def health():
 
 @app.post("/vin/ocr", response_model=VinOcrResponse)
 async def vin_ocr(file: UploadFile = File(...)):
+    logger.info("OCR  ← file=%s  content_type=%s  size=pending", file.filename, file.content_type)
+
     if file.content_type and not (file.content_type.startswith("image/") or file.content_type == "application/octet-stream"):
+        logger.warning("OCR  → 400 rejected content_type=%s", file.content_type)
         raise HTTPException(status_code=400, detail="Upload an image file.")
 
     image_bytes = await file.read()
     if not image_bytes:
+        logger.warning("OCR  → 400 empty upload")
         raise HTTPException(status_code=400, detail="Empty upload.")
+
+    logger.info("OCR  file_size=%d bytes, calling Google Vision…", len(image_bytes))
 
     try:
         raw_text = ocr_google_bytes(image_bytes)
     except Exception as e:
+        logger.error("OCR  → 502 vision error: %s", e)
         raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
 
     vin = extract_valid_vin(raw_text)
+    logger.info("OCR  → 200 vin=%s  valid=%s  raw_length=%d", vin, vin is not None, len(raw_text))
     return VinOcrResponse(vin=vin, raw_text=raw_text, valid=vin is not None)
