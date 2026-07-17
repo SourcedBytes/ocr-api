@@ -109,7 +109,7 @@ def make_vision_client():
 
     if jsondata:
         credentials = service_account.Credentials.from_service_account_info(
-            json.loads(jsondata)
+            json.loads(jsondata.strip().strip("'\""))
         )
         return vision.ImageAnnotatorClient(
             credentials=credentials,
@@ -154,7 +154,7 @@ def health():
 
 @app.post("/vin/ocr", response_model=VinOcrResponse)
 async def vin_ocr(file: UploadFile = File(...)):
-    if not file.content_type or not file.content_type.startswith("image/"):
+    if file.content_type and not (file.content_type.startswith("image/") or file.content_type == "application/octet-stream"):
         raise HTTPException(status_code=400, detail="Upload an image file.")
 
     image_bytes = await file.read()
