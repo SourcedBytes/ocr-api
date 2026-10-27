@@ -1,0 +1,32 @@
+name: Manual Rollback Deployment
+
+on:
+  workflow_dispatch:  # enables manual trigger
+
+concurrency:
+  group: k8s-deploy
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rollback Kubernetes deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_SSH_USERNAME }}
+          key: ${{ secrets.SSH_PROD_KEY }}
+          script: |
+            set -e
+
+            echo "Checking current rollout history..."
+            sudo kubectl rollout history deployment/ocr -n mechlog
+
+            echo "Performing rollback..."
+            sudo kubectl rollout undo deployment/ocr -n mechlog
+
+            echo "Checking new rollout status..."
+            sudo kubectl rollout status deployment/ocr -n mechlog --timeout=600s
+
+            echo "Rollback complete ✅"
