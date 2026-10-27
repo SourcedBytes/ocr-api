@@ -16,7 +16,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/curmens/orc-ghana-card
+  IMAGE_NAME: ghcr.io/sourcedbytes/ocr-api
 
 jobs:
   build-and-push:
@@ -72,12 +72,12 @@ jobs:
 
             IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
 
-            echo "Setting image to: ghcr.io/curmens/orc-ghana-card:${IMAGE_TAG}"
+            echo "Setting image to: ghcr.io/sourcedbytes/ocr-api:${IMAGE_TAG}"
 
             sudo kubectl version --client
 
             # Update the deployment image
-            sudo kubectl set image deployment/ocr ocr=ghcr.io/curmens/orc-ghana-card:$IMAGE_TAG -n mechlog
+            sudo kubectl set image deployment/ocr ocr=ghcr.io/sourcedbytes/ocr-api:$IMAGE_TAG -n mechlog
 
             # Wait for rollout with timeout
             sudo kubectl rollout status deployment/ocr -n mechlog --timeout=600s
